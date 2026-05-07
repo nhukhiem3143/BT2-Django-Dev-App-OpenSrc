@@ -253,17 +253,10 @@ sudo nano django/config/settings.py
 Tìm và sửa / thêm các phần sau:
 
 ```python
-"""
-settings.py — Cấu hình trung tâm của Django project
-Đọc biến môi trường từ .env qua docker-compose
-"""
 
 import os
-from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# ── Bảo mật ──────────────────────────────────────────────────
+# ── Bảo mật 
 # Đọc SECRET_KEY từ biến môi trường (khai báo trong .env)
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'fallback-secret-key-change-me')
 
@@ -273,7 +266,7 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 # Cho phép mọi host truy cập (phù hợp khi dùng Cloudflare Tunnel)
 ALLOWED_HOSTS = ['*']
 
-# ── Ứng dụng đã cài ──────────────────────────────────────────
+# ── Ứng dụng đã cài 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -283,16 +276,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',                  # app chính chứa models, views
     'widget_tweaks',         # hỗ trợ custom form trong template
-]
-
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'myshop.urls'
@@ -314,7 +297,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'myshop.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 # ── Kết nối MariaDB ───────────────────────────────────────────
 # Đọc thông tin DB từ biến môi trường (set bởi docker-compose)
@@ -332,7 +315,7 @@ DATABASES = {
     }
 }
 
-# ── Xác thực mật khẩu ────────────────────────────────────────
+# ── Xác thực mật khẩu 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -340,17 +323,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# ── Quốc tế hóa ──────────────────────────────────────────────
+# ── Quốc tế hóa 
 LANGUAGE_CODE = 'vi'           # giao diện admin tiếng Việt
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
 USE_I18N = True
 USE_TZ = True
 
-# ── Static files ─────────────────────────────────────────────
+# ── Static files 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'   # nơi collectstatic gom file
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ```
 
 Lưu file: `Ctrl+O` → `Enter` → `Ctrl+X`
@@ -401,9 +383,12 @@ Password (again): ••••••••
 
 | Địa chỉ | Chức năng |
 |---|---|
-| `http://localhost:8000/admin` | Trang quản trị Django |
-| `http://localhost:8000/` | Trang con nợ đến hạn |
+| `http://192.168.100.2:8000/admin` | Trang quản trị Django |
+| `http://192.168.100.2:8000/` | Trang con nợ đến hạn |
 | `http://192.168.100.2:8088/` | PhpMyAdmin xem CSDL |
+
+<img width="1436" height="780" alt="image" src="https://github.com/user-attachments/assets/1ae78e10-0506-4895-96a0-80b32c23d7fb" />  
+<img width="1426" height="773" alt="image" src="https://github.com/user-attachments/assets/326fe75c-ce26-4f82-a4af-225b1a0d3d79" />
 
 ---
 
@@ -412,34 +397,46 @@ Password (again): ••••••••
 ### 6.1 `django_app/Dockerfile`
 
 ```dockerfile
-# Dùng Python 3.11 slim làm base image (nhẹ, không có tool thừa)
+# ============================================================
+#  Dockerfile — Build image Python + Django cho service django
+#  Nằm trong thư mục: django/
+# ============================================================
+
+# Dùng Python 3.11 bản slim (nhẹ, không có các package thừa)
 FROM python:3.11-slim
 
-# Cài gói hệ thống để build mysqlclient (driver kết nối MariaDB)
-# gcc: trình biên dịch C
-# default-libmysqlclient-dev: thư viện header MySQL/MariaDB
-# pkg-config: hỗ trợ tìm thư viện khi build
-RUN apt-get update && apt-get install -y \
-    gcc \
-    default-libmysqlclient-dev \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
-# Đặt thư mục làm việc trong container
+# Đặt thư mục làm việc bên trong container
 WORKDIR /app
 
-# Copy requirements trước để tận dụng Docker layer cache
-# (Nếu requirements.txt không đổi, bước pip install được cache lại)
+# Cài các gói hệ thống cần thiết:
+#   - gcc, pkg-config: để biên dịch thư viện C
+#   - default-libmysqlclient-dev: header để cài mysqlclient (kết nối MariaDB)
+#   - curl: tiện ích mạng (debug)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    pkg-config \
+    default-libmysqlclient-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*    # xóa cache apt để giảm kích thước image
+
+# Copy file requirements.txt vào container trước
+# (tách riêng để Docker cache layer này, không rebuild khi chỉ sửa code)
 COPY requirements.txt .
 
-# Cài các thư viện Python
+# Cài toàn bộ thư viện Python từ requirements.txt
+# --no-cache-dir: không lưu cache pip → giảm kích thước image
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy toàn bộ source code vào container
-COPY . .
+# (thực tế bị ghi đè bởi volume mount, nhưng cần cho bước build)
+COPY myshop/ .
 
-# Expose cổng Django
+# Mở port 8000 để bên ngoài container có thể kết nối
 EXPOSE 8000
+
+# Lệnh mặc định khi container khởi động
+# (bị ghi đè bởi `command:` trong docker-compose.yml)
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 ```
 
 ---
@@ -447,15 +444,23 @@ EXPOSE 8000
 ### 6.2 `django_app/requirements.txt`
 
 ```txt
-# Django - web framework chính, phiên bản LTS
-Django==4.2.13
+# ============================================================
+#  requirements.txt — Danh sách thư viện Python cần cài
+#  Cài bằng lệnh: pip install -r requirements.txt
+# ============================================================
 
-# mysqlclient - driver kết nối Django với MariaDB/MySQL
-# (cần gcc và libmysqlclient-dev ở Dockerfile để build)
+# Django: web framework chính — tạo project, app, ORM, admin
+Django==4.2.16
+
+# mysqlclient: driver kết nối Python ↔ MariaDB/MySQL
+# (cần gcc + libmysqlclient-dev đã cài trong Dockerfile)
 mysqlclient==2.2.4
 
-# Pillow - xử lý ảnh (cần nếu dùng ImageField trong models)
-Pillow==10.3.0
+# python-dotenv: đọc biến môi trường từ file .env
+python-dotenv==1.0.1
+
+# django-widget-tweaks: giúp custom form widget trong template HTML
+django-widget-tweaks==1.5.0
 ```
 
 ---
@@ -467,385 +472,82 @@ version: '3.8'
 
 services:
 
-  # ===== SERVICE 1: MariaDB =====
-  db:
-    image: mariadb:10.11
+  # 1. MariaDB: lưu toàn bộ CSDL 
+  mariadb:
+    image: mariadb:10.11       
     container_name: camdo_mariadb
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: camdo_db
-      MYSQL_USER: camdo_user
-      MYSQL_PASSWORD: camdo_pass
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - mariadb_data:/var/lib/mysql    # Lưu data bền vững
+      - mariadb_data:/var/lib/mysql   # lưu data ra ngoài, không mất khi restart
     ports:
-      - "3306:3306"
+      - "3307:3306"
     networks:
       - camdo_net
+    healthcheck:                  
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # ===== SERVICE 2: PhpMyAdmin =====
+  # 2. phpMyAdmin: giao diện web xem CSDL 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: phpmyadmin:latest
     container_name: camdo_phpmyadmin
     restart: always
     environment:
-      PMA_HOST: db
-      PMA_USER: camdo_user
-      PMA_PASSWORD: camdo_pass
+      PMA_HOST: mariadb        
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
-      - "8080:80"
+      - "8088:80"             
     depends_on:
-      - db
+      mariadb:
+        condition: service_healthy  # chỉ khởi động sau khi mariadb healthy
     networks:
       - camdo_net
 
-  # ===== SERVICE 3: Django =====
-  web:
-    build: ./django_app              # Build từ Dockerfile
+  # 3. Django: build từ Dockerfile
+  django:
+    build:
+      context: ./django             # thư mục chứa Dockerfile
+      dockerfile: Dockerfile
     container_name: camdo_django
     restart: always
-    command: python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./django_app:/app            # Mount thư mục để nano edit trực tiếp
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
+    env_file:
+      - .env                        # nạp toàn bộ biến từ file .env
     environment:
-      - DB_HOST=db
-      - DB_NAME=camdo_db
-      - DB_USER=camdo_user
-      - DB_PASSWORD=camdo_pass
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ./django/myshop:/app        # mount thư mục → edit file bằng sudo nano, thấy ngay
+    ports:
+      - "8000:8000"             
+    depends_on:
+      mariadb:
+        condition: service_healthy
     networks:
       - camdo_net
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
 
+# ── Volumes dùng chung 
 volumes:
   mariadb_data:
 
+# ── Network nội bộ giữa các container 
 networks:
   camdo_net:
     driver: bridge
-```
-
----
-
-### 6.4 `camdo/models.py` — Định nghĩa CSDL
-
-```python
-from django.db import models
-
-
-class KhachHang(models.Model):
-    """Thông tin khách hàng / con nợ"""
-    ho_ten = models.CharField(max_length=100, verbose_name="Họ tên")
-    so_dien_thoai = models.CharField(max_length=15, verbose_name="Số điện thoại")
-    so_cmnd = models.CharField(max_length=20, unique=True, verbose_name="Số CMND/CCCD")
-    dia_chi = models.TextField(blank=True, verbose_name="Địa chỉ")
-    ngay_tao = models.DateField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "Khách hàng"
-        verbose_name_plural = "Khách hàng"
-
-    def __str__(self):
-        return f"{self.ho_ten} - {self.so_cmnd}"
-
-
-class NhanVien(models.Model):
-    """Thông tin nhân viên tiệm cầm đồ"""
-    ho_ten = models.CharField(max_length=100, verbose_name="Họ tên")
-    so_dien_thoai = models.CharField(max_length=15, verbose_name="Số điện thoại")
-    chuc_vu = models.CharField(max_length=50, verbose_name="Chức vụ")
-
-    class Meta:
-        verbose_name = "Nhân viên"
-        verbose_name_plural = "Nhân viên"
-
-    def __str__(self):
-        return f"{self.ho_ten} ({self.chuc_vu})"
-
-
-class DanhMucTaiSan(models.Model):
-    """Danh mục loại tài sản: điện thoại, vàng, xe máy..."""
-    ten_danh_muc = models.CharField(max_length=100, verbose_name="Tên danh mục")
-    mo_ta = models.TextField(blank=True, verbose_name="Mô tả")
-
-    class Meta:
-        verbose_name = "Danh mục tài sản"
-        verbose_name_plural = "Danh mục tài sản"
-
-    def __str__(self):
-        return self.ten_danh_muc
-
-
-class HopDongCamDo(models.Model):
-    """Hợp đồng cầm đồ — nghiệp vụ chính của tiệm"""
-    TRANG_THAI_CHOICES = [
-        ('dang_cam', 'Đang cầm'),
-        ('da_chuoc', 'Đã chuộc'),
-        ('qua_han', 'Quá hạn'),
-        ('xu_ly', 'Đang xử lý tài sản'),
-    ]
-
-    # FK: Django admin tự render thành dropdown chọn text
-    khach_hang = models.ForeignKey(
-        KhachHang, on_delete=models.PROTECT, verbose_name="Khách hàng"
-    )
-    nhan_vien = models.ForeignKey(
-        NhanVien, on_delete=models.PROTECT, verbose_name="Nhân viên lập HĐ"
-    )
-    so_hop_dong = models.CharField(max_length=20, unique=True, verbose_name="Số hợp đồng")
-    ngay_cam = models.DateField(verbose_name="Ngày cầm")
-    ngay_dao_han = models.DateField(verbose_name="Ngày đáo hạn")
-    so_tien_cho_vay = models.DecimalField(
-        max_digits=15, decimal_places=0, verbose_name="Số tiền cho vay (VNĐ)"
-    )
-    lai_suat_thang = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name="Lãi suất/tháng (%)"
-    )
-    trang_thai = models.CharField(
-        max_length=20, choices=TRANG_THAI_CHOICES,
-        default='dang_cam', verbose_name="Trạng thái"
-    )
-    ghi_chu = models.TextField(blank=True, verbose_name="Ghi chú")
-
-    class Meta:
-        verbose_name = "Hợp đồng cầm đồ"
-        verbose_name_plural = "Hợp đồng cầm đồ"
-
-    def __str__(self):
-        return f"HĐ {self.so_hop_dong} - {self.khach_hang.ho_ten}"
-
-
-class TaiSan(models.Model):
-    """Tài sản cụ thể gắn với hợp đồng"""
-    hop_dong = models.ForeignKey(
-        HopDongCamDo, on_delete=models.CASCADE,
-        related_name='tai_san', verbose_name="Hợp đồng"
-    )
-    danh_muc = models.ForeignKey(
-        DanhMucTaiSan, on_delete=models.PROTECT, verbose_name="Danh mục"
-    )
-    ten_tai_san = models.CharField(max_length=200, verbose_name="Tên tài sản")
-    mo_ta_tai_san = models.TextField(blank=True, verbose_name="Mô tả chi tiết")
-    gia_tri_dinh_gia = models.DecimalField(
-        max_digits=15, decimal_places=0, verbose_name="Giá trị định giá (VNĐ)"
-    )
-
-    class Meta:
-        verbose_name = "Tài sản"
-        verbose_name_plural = "Tài sản"
-
-    def __str__(self):
-        return f"{self.ten_tai_san} — HĐ {self.hop_dong.so_hop_dong}"
-
-
-class LichSuThanhToan(models.Model):
-    """Lịch sử thanh toán / gia hạn hợp đồng"""
-    LOAI_CHOICES = [
-        ('tra_lai', 'Trả lãi'),
-        ('gia_han', 'Gia hạn'),
-        ('chuoc_hang', 'Chuộc hàng'),
-    ]
-
-    hop_dong = models.ForeignKey(
-        HopDongCamDo, on_delete=models.CASCADE,
-        related_name='lich_su_thanh_toan', verbose_name="Hợp đồng"
-    )
-    ngay_thanh_toan = models.DateField(verbose_name="Ngày thanh toán")
-    so_tien = models.DecimalField(
-        max_digits=15, decimal_places=0, verbose_name="Số tiền (VNĐ)"
-    )
-    loai_thanh_toan = models.CharField(
-        max_length=20, choices=LOAI_CHOICES, verbose_name="Loại thanh toán"
-    )
-    ghi_chu = models.TextField(blank=True, verbose_name="Ghi chú")
-
-    class Meta:
-        verbose_name = "Lịch sử thanh toán"
-        verbose_name_plural = "Lịch sử thanh toán"
-
-    def __str__(self):
-        return f"{self.loai_thanh_toan} — {self.ngay_thanh_toan} — HĐ {self.hop_dong.so_hop_dong}"
-```
-
----
-
-### 6.5 `camdo/admin.py` — Cấu hình trang Admin
-
-```python
-from django.contrib import admin
-from .models import KhachHang, NhanVien, DanhMucTaiSan, HopDongCamDo, TaiSan, LichSuThanhToan
-
-
-@admin.register(KhachHang)
-class KhachHangAdmin(admin.ModelAdmin):
-    list_display = ['ho_ten', 'so_cmnd', 'so_dien_thoai', 'dia_chi']
-    search_fields = ['ho_ten', 'so_cmnd']
-
-
-@admin.register(NhanVien)
-class NhanVienAdmin(admin.ModelAdmin):
-    list_display = ['ho_ten', 'chuc_vu', 'so_dien_thoai']
-
-
-@admin.register(DanhMucTaiSan)
-class DanhMucAdmin(admin.ModelAdmin):
-    list_display = ['ten_danh_muc', 'mo_ta']
-
-
-class TaiSanInline(admin.TabularInline):
-    """Hiển thị tài sản ngay trong trang hợp đồng"""
-    model = TaiSan
-    extra = 1
-
-
-class LichSuInline(admin.TabularInline):
-    """Hiển thị lịch sử thanh toán ngay trong trang hợp đồng"""
-    model = LichSuThanhToan
-    extra = 0
-
-
-@admin.register(HopDongCamDo)
-class HopDongAdmin(admin.ModelAdmin):
-    list_display = ['so_hop_dong', 'khach_hang', 'so_tien_cho_vay',
-                    'ngay_cam', 'ngay_dao_han', 'trang_thai']
-    list_filter = ['trang_thai', 'ngay_dao_han']
-    search_fields = ['so_hop_dong', 'khach_hang__ho_ten']
-    inlines = [TaiSanInline, LichSuInline]
-
-
-@admin.register(TaiSan)
-class TaiSanAdmin(admin.ModelAdmin):
-    list_display = ['ten_tai_san', 'danh_muc', 'hop_dong', 'gia_tri_dinh_gia']
-
-
-@admin.register(LichSuThanhToan)
-class LichSuAdmin(admin.ModelAdmin):
-    list_display = ['hop_dong', 'ngay_thanh_toan', 'so_tien', 'loai_thanh_toan']
-```
-
----
-
-### 6.6 `camdo/views.py` — Logic lấy dữ liệu con nợ đến hạn
-
-```python
-from django.shortcuts import render
-from django.utils import timezone
-from .models import HopDongCamDo
-
-
-def home_page(request):
-    """
-    View trang chủ: lấy danh sách hợp đồng đã đến hạn hoặc quá hạn
-    mà khách hàng chưa chuộc → truyền vào template qua context
-    """
-    hom_nay = timezone.now().date()
-
-    hop_dong_qua_han = HopDongCamDo.objects.filter(
-        ngay_dao_han__lte=hom_nay,
-        trang_thai__in=['dang_cam', 'qua_han']
-    ).select_related('khach_hang', 'nhan_vien').order_by('ngay_dao_han')
-
-    context = {
-        'hop_dong_qua_han': hop_dong_qua_han,
-        'hom_nay': hom_nay,
-        'tong_so': hop_dong_qua_han.count(),
-    }
-    return render(request, 'camdo/home.html', context)
-```
-
----
-
-### 6.7 `camdo/templates/camdo/home.html` — Template Jinja2
-
-```html
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Tiệm Cầm Đồ — Con Nợ Đến Hạn</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
-        .header { background: #c0392b; color: white; padding: 20px 40px; }
-        .header h1 { margin: 0; }
-        .header p  { margin: 4px 0 0; opacity: 0.85; font-size: 14px; }
-        .container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
-        .alert { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
-                 padding: 16px 20px; margin-bottom: 24px; }
-        table { width: 100%; border-collapse: collapse; background: white;
-                border-radius: 8px; overflow: hidden;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        th { background: #c0392b; color: white; padding: 12px 16px; text-align: left; }
-        td { padding: 12px 16px; border-bottom: 1px solid #eee; }
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background: #ffeaea; }
-        .badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; }
-        .badge-qua-han { background: #e74c3c; }
-        .badge-den-han { background: #f39c12; }
-        .so-tien { font-weight: bold; color: #c0392b; }
-        .empty { text-align: center; padding: 60px; color: #888; font-size: 18px; }
-    </style>
-</head>
-<body>
-
-<div class="header">
-    <h1>🏪 Tiệm Cầm Đồ — Danh Sách Con Nợ Đến Hạn</h1>
-    <p>Ngày hôm nay: {{ hom_nay }}</p>
-</div>
-
-<div class="container">
-
-    {% if tong_so > 0 %}
-    <div class="alert">
-        ⚠️ Có <strong>{{ tong_so }}</strong> hợp đồng đến hạn / quá hạn chưa chuộc!
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Số HĐ</th>
-                <th>Khách hàng</th>
-                <th>Số điện thoại</th>
-                <th>Số tiền vay</th>
-                <th>Ngày cầm</th>
-                <th>Ngày đáo hạn</th>
-                <th>Nhân viên</th>
-                <th>Trạng thái</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for hd in hop_dong_qua_han %}
-            <tr>
-                <td><strong>{{ hd.so_hop_dong }}</strong></td>
-                <td>{{ hd.khach_hang.ho_ten }}</td>
-                <td>{{ hd.khach_hang.so_dien_thoai }}</td>
-                <td class="so-tien">{{ hd.so_tien_cho_vay }} VNĐ</td>
-                <td>{{ hd.ngay_cam }}</td>
-                <td>{{ hd.ngay_dao_han }}</td>
-                <td>{{ hd.nhan_vien.ho_ten }}</td>
-                <td>
-                    {% if hd.trang_thai == 'qua_han' %}
-                        <span class="badge badge-qua-han">Quá hạn</span>
-                    {% else %}
-                        <span class="badge badge-den-han">Đến hạn hôm nay</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    {% else %}
-    <div class="empty">
-        ✅ Hiện tại không có hợp đồng nào đến hạn!
-    </div>
-    {% endif %}
-
-</div>
-</body>
-</html>
 ```
 
 ---
@@ -915,12 +617,12 @@ docker compose restart web
 
 ### 7.4 Kiểm tra khóa ngoại bằng PhpMyAdmin
 
-1. Truy cập `http://localhost:8080`
-2. Đăng nhập: user `camdo_user` / pass `camdo_pass`
-3. Chọn database `camdo_db`
-4. Mở bảng `camdo_hopdongcamdo`
+1. Truy cập `http://192.168.100.2:8088/`
+2. Đăng nhập: user / pass 
+3. Chọn database `quanlytiemcamdo`
+4. Mở bảng `core_hopdong`
 5. Xem cột `khach_hang_id` → lưu **ID số** (khóa ngoại)
-6. Mở bảng `camdo_khachhang` → tìm **ID tương ứng** → đó chính là khách hàng
+6. Mở bảng `core_khachhang` → tìm **ID tương ứng** → đó chính là khách hàng
 
 > Trong Django Admin: trường khóa ngoại hiển thị **tên text** (ví dụ: "Nguyễn Văn A - 012345678")
 > nhưng MariaDB thực tế lưu **số ID** → PhpMyAdmin giúp kiểm chứng điều này.
@@ -996,29 +698,6 @@ Truy cập URL đó từ bất kỳ thiết bị nào để xem kết quả.
 
 <!-- ![Cloudflare](docs/screenshot_cloudflare.png) -->
 
----
-
-## 🛠️ Xử Lý Lỗi Thường Gặp
-
-| Lỗi | Nguyên nhân | Giải pháp |
-|---|---|---|
-| `Can't connect to MySQL server` | Django chạy trước khi MariaDB sẵn sàng | `docker compose restart web` |
-| `No module named 'camdo'` | Chưa thêm `'camdo'` vào `INSTALLED_APPS` | Sửa `settings.py` và restart |
-| `Table doesn't exist` | Chưa migrate | `docker compose exec web python manage.py migrate` |
-| `OperationalError: (1045)` | Sai thông tin kết nối DB | Kiểm tra `settings.py` và `docker-compose.yml` |
-| Trang admin không có bảng | Chưa đăng ký trong `admin.py` | Thêm `@admin.register(Model)` |
-| Static files 404 | Thiếu `collectstatic` | `docker compose exec web python manage.py collectstatic` |
-
----
-
-## 📚 Tài Liệu Tham Khảo
-
-- [Django Documentation](https://docs.djangoproject.com/)
-- [Django Admin](https://docs.djangoproject.com/en/4.2/ref/contrib/admin/)
-- [Django ORM — Models](https://docs.djangoproject.com/en/4.2/topics/db/models/)
-- [Docker Compose](https://docs.docker.com/compose/)
-- [MariaDB Docker Image](https://hub.docker.com/_/mariadb)
-- [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/)
 
 ---
 
