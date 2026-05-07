@@ -1,6 +1,6 @@
 # 🏪 Hệ Thống Quản Lý Tiệm Cầm Đồ
 
-> **Môn học:** Lập trình Web  
+> **Môn học:** Phát triển ứng dụng với mã nguồn mở-TEE0421
 > **Công nghệ:** Django · MariaDB · Docker · PhpMyAdmin · Cloudflare Tunnel  
 > **Deadline:** 23h59 ngày 09/05/2026
 
