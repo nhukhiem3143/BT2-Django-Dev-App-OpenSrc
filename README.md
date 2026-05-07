@@ -1,6 +1,6 @@
 # 🏪 Hệ Thống Quản Lý Tiệm Cầm Đồ
 
-> **Môn học:** Phát triển ứng dụng với mã nguồn mở-TEE0421
+> **Môn học:** Phát triển ứng dụng với mã nguồn mở-TEE0421  
 > **Công nghệ:** Django · MariaDB · Docker · PhpMyAdmin · Cloudflare Tunnel  
 > **Deadline:** 23h59 ngày 09/05/2026
 
@@ -27,7 +27,7 @@ Hệ thống quản lý tiệm cầm đồ được xây dựng bằng **Django*
 | Service | Công dụng | Port |
 |---|---|---|
 | **MariaDB** | Lưu trữ toàn bộ cơ sở dữ liệu | 3306 |
-| **PhpMyAdmin** | Giao diện xem/kiểm tra CSDL | 8080 |
+| **PhpMyAdmin** | Giao diện xem/kiểm tra CSDL | 8088 |
 | **Django** | Ứng dụng web chính | 8000 |
 
 ### Tính năng chính
@@ -154,34 +154,35 @@ DanhMucTaiSan ─(1:N)──────► TaiSan
 ## 4. Cấu Trúc Thư Mục
 
 ```
-camdo_project/
+django-project/                  
 │
-├── docker-compose.yml              # Cấu hình 3 service Docker
+├── docker-compose.yml              ← định nghĩa 3 service
+├── .env                            ← chứa password, secret key (KHÔNG push lên git)
+├── .gitignore                      ← bỏ qua .env, __pycache__, ...
+├── README.md                       ← hướng dẫn (file này)
 │
-├── django_app/                     # Thư mục build image Django
-│   ├── Dockerfile                  # Hướng dẫn build container Python/Django
-│   ├── requirements.txt            # Danh sách thư viện Python cần cài
+├── django/                         ← thư mục build Docker image cho Django
+│   ├── Dockerfile                  ← build image Python + Django
+│   ├── requirements.txt            ← danh sách thư viện pip
 │   │
-│   ├── config/                     # Cấu hình project Django
-│   │   ├── __init__.py
-│   │   ├── settings.py             # Cài đặt chính: DB, APPS, TIMEZONE...
-│   │   ├── urls.py                 # URL gốc của project
-│   │   └── wsgi.py
-│   │
-│   ├── camdo/                      # App nghiệp vụ tiệm cầm đồ
-│   │   ├── __init__.py
-│   │   ├── models.py               # Định nghĩa các bảng CSDL
-│   │   ├── admin.py                # Cấu hình trang quản trị
-│   │   ├── views.py                # Xử lý logic, trả dữ liệu về template
-│   │   ├── urls.py                 # URL của app
-│   │   └── templates/
-│   │       └── camdo/
-│   │           └── home.html       # Template Jinja2: trang con nợ đến hạn
-│   │
-│   └── manage.py                   # File điều khiển Django
+│   └── myshop/                   ← Django project (mount vào container)
+│       ├── manage.py
+│       ├── config/               ← Django config app
+│       │   ├── settings.py         ← cấu hình DB, INSTALLED_APPS, ...
+│       │   ├── urls.py
+│       │   └── wsgi.py
+│       │
+│       └── core/                   ← app chính chứa nghiệp vụ
+│           ├── models.py           ← định nghĩa bảng CSDL
+│           ├── admin.py            ← đăng ký bảng vào trang admin
+│           ├── views.py            ← view home_page con nợ đến hạn
+│           ├── urls.py
+│           └── templates/
+│               └── core/
+│                   └── home.html   ← template Jinja2 liệt kê con nợ
 │
-└── docs/
-    └── database_design.jpg         # Ảnh thiết kế CSDL viết tay
+└── docs/                           ← ảnh chụp sơ đồ CSDL viết tay
+    └── so_do_csdl.jpg              ← upload lên GitHub
 ```
 
 ---
@@ -205,8 +206,8 @@ docker compose version
 ### 5.2 Bước 1 — Clone project
 
 ```bash
-git clone https://github.com/<ten-ban>/<ten-repo>.git
-cd camdo_project
+[git clone https://github.com/<ten-ban>/<ten-repo>.git](https://github.com/nhukhiem3143/BT2-Django-Dev-App-OpenSrc.git)
+cd django-project
 ```
 
 ---
@@ -222,28 +223,23 @@ Kiểm tra 3 container đang chạy:
 ```bash
 docker compose ps
 ```
-
-Kết quả mong đợi:
-```
-NAME                 STATUS
-camdo_django         running
-camdo_mariadb        running
-camdo_phpmyadmin     running
-```
+<img width="1589" height="244" alt="image" src="https://github.com/user-attachments/assets/f1a916f3-97fe-4e33-9dda-6221785a3383" />
 
 ---
 
 ### 5.4 Bước 3 — Khởi tạo Django (chỉ làm 1 lần đầu)
 
+#### Nếu chưa có project Django, tạo mới trong container
 ```bash
-# Nếu chưa có project Django, tạo mới trong container
-docker compose exec web django-admin startproject config .
-
-# Tạo app camdo
-docker compose exec web python manage.py startapp camdo
+docker compose exec django django-admin startproject config .
 ```
+<img width="1591" height="144" alt="image" src="https://github.com/user-attachments/assets/719e471e-787f-41e2-b6c6-1fe2e7c72f36" />
 
-> **Lưu ý:** Nếu đã clone từ repo này, bước tạo project đã có sẵn — bỏ qua.
+#### Tạo app core
+```bash
+docker compose exec django python manage.py startapp core
+```
+<img width="1578" height="77" alt="image" src="https://github.com/user-attachments/assets/0c8940d3-a801-4355-b3c8-6fd65bdb65af" />
 
 ---
 
@@ -251,13 +247,33 @@ docker compose exec web python manage.py startapp camdo
 
 Sửa file bằng `nano`:
 ```bash
-sudo nano django_app/config/settings.py
+sudo nano django/config/settings.py
 ```
 
 Tìm và sửa / thêm các phần sau:
 
 ```python
-# Thêm app camdo vào INSTALLED_APPS
+"""
+settings.py — Cấu hình trung tâm của Django project
+Đọc biến môi trường từ .env qua docker-compose
+"""
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ── Bảo mật ──────────────────────────────────────────────────
+# Đọc SECRET_KEY từ biến môi trường (khai báo trong .env)
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'fallback-secret-key-change-me')
+
+# Debug: True khi dev, False khi production
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
+
+# Cho phép mọi host truy cập (phù hợp khi dùng Cloudflare Tunnel)
+ALLOWED_HOSTS = ['*']
+
+# ── Ứng dụng đã cài ──────────────────────────────────────────
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -265,26 +281,76 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'camdo',    # <-- thêm dòng này
+    'core',                  # app chính chứa models, views
+    'widget_tweaks',         # hỗ trợ custom form trong template
 ]
 
-# Cấu hình kết nối MariaDB
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+ROOT_URLCONF = 'myshop.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        # Thư mục templates toàn cục (nếu cần)
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,            # Tìm templates trong thư mục mỗi app
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'myshop.wsgi.application'
+
+# ── Kết nối MariaDB ───────────────────────────────────────────
+# Đọc thông tin DB từ biến môi trường (set bởi docker-compose)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.mysql',    # dùng MySQL engine (tương thích MariaDB)
         'NAME': os.environ.get('DB_NAME', 'camdo_db'),
         'USER': os.environ.get('DB_USER', 'camdo_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'camdo_pass'),
-        'HOST': os.environ.get('DB_HOST', 'db'),
-        'PORT': '3306',
-        'OPTIONS': {'charset': 'utf8mb4'},
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+        'HOST': os.environ.get('DB_HOST', 'mariadb'),  # tên service trong docker-compose
+        'PORT': os.environ.get('DB_PORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',                # hỗ trợ tiếng Việt đầy đủ
+        },
     }
 }
 
-# Múi giờ và ngôn ngữ
-LANGUAGE_CODE = 'vi'
+# ── Xác thực mật khẩu ────────────────────────────────────────
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+# ── Quốc tế hóa ──────────────────────────────────────────────
+LANGUAGE_CODE = 'vi'           # giao diện admin tiếng Việt
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
+USE_I18N = True
 USE_TZ = True
+
+# ── Static files ─────────────────────────────────────────────
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'   # nơi collectstatic gom file
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ```
 
 Lưu file: `Ctrl+O` → `Enter` → `Ctrl+X`
@@ -293,33 +359,41 @@ Lưu file: `Ctrl+O` → `Enter` → `Ctrl+X`
 
 ### 5.6 Bước 5 — Tạo bảng CSDL (Migration)
 
+
+#### Tạo file migration từ models.py
 ```bash
-# Tạo file migration từ models.py
-docker compose exec web python manage.py makemigrations camdo
-
-# Apply migration vào MariaDB (Django tự tạo bảng)
-docker compose exec web python manage.py migrate
+docker compose exec django python manage.py makemigrations core
 ```
+<img width="1238" height="345" alt="image" src="https://github.com/user-attachments/assets/c0bac95b-1243-4a78-ab17-3d0ebd93e366" />
 
-> **Kiểm chứng:** Mở PhpMyAdmin tại `http://localhost:8080`
-> → Đăng nhập (user: `camdo_user`, pass: `camdo_pass`)
-> → Vào database `camdo_db` → Thấy các bảng đã được tạo ✅
+#### Apply migration vào MariaDB (Django tự tạo bảng)
+```bash
+docker compose exec django python manage.py migrate
+```
+<img width="1250" height="627" alt="image" src="https://github.com/user-attachments/assets/b9312be0-467e-4936-8417-8173fbfcee20" />  
+
+**Kiểm chứng:** Mở PhpMyAdmin tại `http://192.168.100.2:8088`  
+→ Đăng nhập (user, pass đã tạo)  
+→ Vào database `quanlytiemcamdo` → Thấy các bảng đã được tạo ✅  
+
+<img width="1850" height="944" alt="image" src="https://github.com/user-attachments/assets/0eb9ddfe-98bb-41e5-83a8-3e111d2b2942" />  
 
 ---
 
 ### 5.7 Bước 6 — Tạo tài khoản admin
 
 ```bash
-docker compose exec web python manage.py createsuperuser
+docker compose exec django python manage.py createsuperuser
 ```
 
-Nhập theo thứ tự:
+Nhập theo (đã tạo ở .env) thứ tự:
 ```
 Username: admin
-Email: admin@example.com
+Email: nhukhiem24@gmail.com
 Password: ••••••••
 Password (again): ••••••••
 ```
+<img width="1586" height="273" alt="image" src="https://github.com/user-attachments/assets/036b161a-d92e-48f9-bd8f-3411cb130714" />
 
 ---
 
@@ -329,7 +403,7 @@ Password (again): ••••••••
 |---|---|
 | `http://localhost:8000/admin` | Trang quản trị Django |
 | `http://localhost:8000/` | Trang con nợ đến hạn |
-| `http://localhost:8080` | PhpMyAdmin xem CSDL |
+| `http://192.168.100.2:8088/` | PhpMyAdmin xem CSDL |
 
 ---
 
