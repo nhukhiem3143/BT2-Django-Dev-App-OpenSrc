@@ -894,8 +894,10 @@ Add a public hostname
 
 ### 9.2 Trang Con Nợ Đến Hạn
 
+<img width="1881" height="1024" alt="image" src="https://github.com/user-attachments/assets/e4aecb22-3085-41c9-87c3-d402a4e72b6f" />  
+
 <img width="1876" height="985" alt="image" src="https://github.com/user-attachments/assets/edc2fc3f-9186-4609-9941-d5105f1fa414" />
 
 ---
 
-*Bài tập môn Lập trình Web — Sử dụng Django quản lý tiệm cầm đồ*
+*Bài tập môn Phát triển ứng dụng với mã nguồn mở-TEE0421  — Sử dụng Django quản lý tiệm cầm đồ*
