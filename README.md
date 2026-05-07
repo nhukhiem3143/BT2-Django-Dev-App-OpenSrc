@@ -44,10 +44,7 @@ Hệ thống quản lý tiệm cầm đồ được xây dựng bằng **Django*
 
 ### 2.1 Sơ đồ quan hệ
 
-> *(Ảnh thiết kế tay — tự chèn vào đây)*
 
-<!-- 📷 CHÈN ẢNH THIẾT KẾ TAY VÀO ĐÂY -->
-<!-- ![Thiết kế CSDL](docs/database_design.jpg) -->
 
 ### 2.2 Các bảng và quan hệ
 
@@ -123,32 +120,25 @@ DanhMucTaiSan ─(1:N)──────► TaiSan
 ---
 
 ## 3. Kiến Trúc Hệ Thống
+```mermaid
+graph TD
+    subgraph Docker ["Docker Network"]
+        Django["Django (:8000)"]
+        PMA["PhpMyAdmin (:8088)"]
+        MariaDB[("MariaDB (:3306)")]
+    end
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Docker Network                     │
-│                                                      │
-│  ┌──────────────┐    ┌──────────────┐               │
-│  │   Django     │    │ PhpMyAdmin   │               │
-│  │  :8000       │    │  :8080       │               │
-│  └──────┬───────┘    └──────┬───────┘               │
-│         │                   │                        │
-│         └─────────┬─────────┘                        │
-│                   ▼                                  │
-│           ┌───────────────┐                          │
-│           │   MariaDB     │                          │
-│           │   :3306       │                          │
-│           └───────────────┘                          │
-└─────────────────────────────────────────────────────┘
-         │                          │
-    localhost:8000             localhost:8080
-    (Trang web Django)         (PhpMyAdmin)
-         │
-    cloudflared tunnel
-         │
-    https://xxx.trycloudflare.com  (Public Internet)
-```
+    Django --> MariaDB
+    PMA --> MariaDB
 
+    Internet(("Public Internet")) 
+    URL["https://django.nhukhiem.id.vn"]
+    Tunnel["Cloudflared Tunnel"]
+
+    Internet --> URL --> Tunnel --> Django
+    Django --- L1["localhost:8000"]
+    PMA --- L2["localhost:8088"]
+```
 ---
 
 ## 4. Cấu Trúc Thư Mục
@@ -161,28 +151,25 @@ django-project/
 ├── .gitignore                      ← bỏ qua .env, __pycache__, ...
 ├── README.md                       ← hướng dẫn (file này)
 │
-├── django/                         ← thư mục build Docker image cho Django
-│   ├── Dockerfile                  ← build image Python + Django
-│   ├── requirements.txt            ← danh sách thư viện pip
-│   │
-│   └── myshop/                   ← Django project (mount vào container)
-│       ├── manage.py
-│       ├── config/               ← Django config app
-│       │   ├── settings.py         ← cấu hình DB, INSTALLED_APPS, ...
-│       │   ├── urls.py
-│       │   └── wsgi.py
-│       │
-│       └── core/                   ← app chính chứa nghiệp vụ
-│           ├── models.py           ← định nghĩa bảng CSDL
-│           ├── admin.py            ← đăng ký bảng vào trang admin
-│           ├── views.py            ← view home_page con nợ đến hạn
-│           ├── urls.py
-│           └── templates/
-│               └── core/
-│                   └── home.html   ← template Jinja2 liệt kê con nợ
-│
-└── docs/                           ← ảnh chụp sơ đồ CSDL viết tay
-    └── so_do_csdl.jpg              ← upload lên GitHub
+└── django/                         ← thư mục build Docker image cho Django
+   ├── Dockerfile                  ← build image Python + Django
+   ├── requirements.txt            ← danh sách thư viện pip
+   │
+   └── myshop/                   ← Django project (mount vào container)
+       ├── manage.py
+       ├── config/               ← Django config app
+       │   ├── settings.py         ← cấu hình DB, INSTALLED_APPS, ...
+       │   ├── urls.py
+       │   └── wsgi.py│
+       │
+       └── core/                   ← app chính chứa nghiệp vụ
+           ├── models.py           ← định nghĩa bảng CSDL
+           ├── admin.py            ← đăng ký bảng vào trang admin
+           ├── views.py            ← view home_page con nợ đến hạn
+           ├── urls.py
+           └── templates/
+               └── core/
+                   └── home.html   ← template Jinja2 liệt kê con nợ
 ```
 
 ---
@@ -615,60 +602,236 @@ docker compose restart web
 
 ---
 
-### 7.4 Kiểm tra khóa ngoại bằng PhpMyAdmin
+### 7.4 Kiểm tra Kiểm tra tính toàn vẹn dữ liệu và Khóa ngoại (Foreign Key)
 
-1. Truy cập `http://192.168.100.2:8088/`
-2. Đăng nhập: user / pass 
-3. Chọn database `quanlytiemcamdo`
-4. Mở bảng `core_hopdong`
-5. Xem cột `khach_hang_id` → lưu **ID số** (khóa ngoại)
-6. Mở bảng `core_khachhang` → tìm **ID tương ứng** → đó chính là khách hàng
-
-> Trong Django Admin: trường khóa ngoại hiển thị **tên text** (ví dụ: "Nguyễn Văn A - 012345678")
-> nhưng MariaDB thực tế lưu **số ID** → PhpMyAdmin giúp kiểm chứng điều này.
+Để đảm bảo hệ thống quản lý tiệm cầm đồ hoạt động chính xác, chúng ta thực hiện quy trình nhập liệu trên trang quản trị (Admin) và kiểm chứng sự lưu trữ thực tế trong cơ sở dữ liệu thông qua phpMyAdmin.
 
 ---
 
-## 8. Public Với Cloudflare Tunnel
+#### 1. Quy trình tạo dữ liệu trên trang Django Admin
 
-### 8.1 Cài đặt cloudflared
+Trong Django Admin, việc nhập liệu cần tuân thủ **thứ tự ưu tiên** do các bảng có mối quan hệ ràng buộc khóa ngoại (Foreign Key - FK).
+
+**Thứ tự nhập liệu chuẩn:**
+1.  **Nhân viên, Khách hàng & Tài sản:** Nhập trước vì đây là các bảng độc lập (không chứa FK).
+2.  **Hợp đồng:** Nhập sau (vì cần tham chiếu đến Khách hàng, Nhân viên và Tài sản).
+3.  **Thanh toán:** Nhập cuối cùng (vì cần tham chiếu đến ID của Hợp đồng).
+
+##### Bước 1: Thêm mới Khách hàng
+* Truy cập mục **Khách hàng** -> chọn **Thêm vào**.
+* Nhập thông tin cá nhân. Django sẽ tự động cấp một ID duy nhất cho mỗi khách hàng.
+
+![Thêm khách hàng từ giao diện admin](https://github.com/user-attachments/assets/ef1e0d43-89cb-4baf-9f6a-7d2e798f8909)
+
+*Sau khi nhấn Lưu, hệ thống sẽ thông báo thêm thành công:*
+![Thêm thành công](https://github.com/user-attachments/assets/3eace3fc-bde8-4acc-af14-e62d92ca5f96)
+
+##### Bước 2: Thêm mới Tài sản
+* Truy cập mục **Tài sản** -> chọn **Thêm vào**.
+* Nhập tên tài sản và tình trạng thực tế.
+
+![Thêm tài sản](https://github.com/user-attachments/assets/394c58c3-8712-4934-94dd-928c71233595)
+
+##### Bước 3: Tạo Hợp đồng cầm đồ
+* Truy cập mục **Hợp đồng cầm đồ** -> chọn **Thêm vào**.
+* **Khách hàng & Tài sản:** Lúc này, bạn chỉ cần chọn tên từ danh sách thả xuống (Dropdown).
+* Nhập số tiền vay, lãi suất và các ghi chú liên quan.
+
+![Thêm hợp đồng](https://github.com/user-attachments/assets/01fa6955-f7ae-4eb2-960e-6344efba9d89)
+
+---
+
+#### 2. Kiểm chứng dữ liệu bằng phpMyAdmin
+
+Sau khi thao tác trên giao diện Admin, chúng ta truy cập `http://192.168.100.2:8088/` để kiểm tra cách MariaDB lưu trữ dữ liệu.
+
+##### Kiểm tra bảng Khách hàng (`core_khachhang`)
+Dữ liệu khách hàng được lưu trữ với các cột tương ứng, mỗi khách hàng được định danh bằng một **ID (Primary Key)**.
+
+![Giao diện php khách hàng](https://github.com/user-attachments/assets/6690bec5-2044-4435-953a-52be05b7fcc3)
+
+##### Kiểm tra bảng Tài sản (`core_taisan`)
+Tài sản cũng được lưu trữ tương tự với ID riêng biệt.
+
+![Giao diện php tài sản](https://github.com/user-attachments/assets/353dad4b-7991-426e-8009-041f8dfa1444)
+
+##### Kiểm tra bảng Hợp đồng (`core_hopdong`) — Kiểm chứng Khóa ngoại
+Đây là minh chứng rõ ràng nhất về cơ chế hoạt động của Cơ sở dữ liệu:
+* Trong Django Admin: Bạn thấy **Tên khách hàng** (Nguyễn Như Khiêm).
+* Trong Database: Tại cột `khach_hang_id`, hệ thống chỉ lưu **số ID** (ví dụ: `16`). 
+
+> **Ghi chú:** Việc lưu ID (số) thay vì Tên (chữ) giúp tối ưu tốc độ truy xuất và đảm bảo tính nhất quán (nếu khách hàng đổi tên, ID vẫn không đổi, hợp đồng vẫn liên kết đúng).
+
+![Giao diện php hợp đồng](https://github.com/user-attachments/assets/980e96e6-3c3e-498b-8af9-4ea4f52f0ebd)
+
+---
+
+#### 3. Bảng tóm tắt logic hệ thống
+
+| Chức năng | Thao tác trên Django Admin | Kết quả thực tế trong Database (SQL) |
+| :--- | :--- | :--- |
+| **Thêm mới** | Chọn Text từ dropdown (thân thiện người dùng). | Tạo bản ghi mới, các cột FK lưu đúng **ID số** (Primary Key) của bảng tham chiếu. |
+| **Sửa (Update)** | Chọn lại đối tượng khác trong danh sách. | Cột FK trong Database cập nhật sang giá trị **ID mới**. |
+| **Xóa (Delete)** | Xóa 1 bản ghi cha (vd: Khách hàng). | Nếu cấu hình `CASCADE`, các bản ghi con (Hợp đồng) liên quan sẽ tự động bị xóa theo. |
+
+---
+
+### 7.5. Trang home_page liệt kê các người dùng đang nợ
+
+<img width="1873" height="981" alt="image" src="https://github.com/user-attachments/assets/e2710ab6-e2e9-4c2e-a6e0-5f0ef38270f6" />  
+<img width="1850" height="1020" alt="image" src="https://github.com/user-attachments/assets/ee9e40f6-17cf-459a-9c48-773ce0320099" />
+
+
+# 8. Public Website Với Cloudflare Tunnel
+
+Thay vì cài đặt trực tiếp Cloudflare Tunnel trên Ubuntu, hệ thống sẽ chạy Tunnel dưới dạng một Docker Container.
+Cách này giúp:
+
+* Đồng bộ toàn bộ hệ thống bằng Docker
+* Dễ backup và deploy
+* Tự khởi động cùng các service khác
+* Dễ quản lý bằng Docker Compose
+
+---
+
+# 8.1. Thêm Service Cloudflared
+
+Mở file:
 
 ```bash
-# Tải cloudflared cho Ubuntu x64
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
-     -o cloudflared.deb
-
-# Cài đặt
-sudo dpkg -i cloudflared.deb
-
-# Kiểm tra cài thành công
-cloudflared --version
+docker-compose.yml
 ```
 
-### 8.2 Tạo tunnel tạm thời (không cần tài khoản)
+Thêm đoạn sau vào phần `services:`:
+
+```yml
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: camdo_cloudflared
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - django
+    networks:
+      - camdo_net
+```
+---
+
+# 8.2. Thêm Token Cloudflare
+
+Mở file:
 
 ```bash
-# Tunnel Django port 8000 ra Internet
-cloudflared tunnel --url http://localhost:8000
+.env
 ```
 
-Kết quả sẽ hiển thị:
+Thêm:
+
+```env
+CLOUDFLARE_TOKEN=eyJhIjoi...
 ```
-+-------------------------------------+
-| Your quick Tunnel has been created! |
-+-------------------------------------+
-| https://abc-xyz-123.trycloudflare.com  |
-+-------------------------------------+
+---
+
+# 8.3. Lấy Tunnel Token Trên Cloudflare
+
+## Bước 1: Truy cập Cloudflare Zero Trust
+
+Đăng nhập Cloudflare:
+
+```text
+https://dash.cloudflare.com/
 ```
 
-Truy cập URL đó từ bất kỳ thiết bị nào để xem kết quả.
+Vào:
 
-> **Lưu ý:** Tunnel tạm thời sẽ mất khi tắt terminal. Để giữ lâu dài, chạy trong `screen` hoặc `tmux`:
-> ```bash
-> screen -S tunnel
-> cloudflared tunnel --url http://localhost:8000
-> # Ctrl+A rồi D để detach
-> ```
+```text
+Zero Trust
+→ Networks
+→ Tunnels
+```
+
+---
+
+## Bước 2: Tạo Tunnel
+
+Chọn:
+
+```text
+Create a Tunnel
+```
+
+Đặt tên:
+
+```text
+django-tunnel
+```
+
+
+---
+
+## Bước 3: Chọn Docker
+
+Cloudflare sẽ hiện lệnh dạng:
+
+```bash
+docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token xxxxx
+```
+
+Copy phần:
+
+```text
+xxxxx
+```
+
+đó chính là:
+
+```env
+CLOUDFLARE_TOKEN
+```
+
+<img width="1867" height="961" alt="Screenshot 2026-05-08 002109" src="https://github.com/user-attachments/assets/d735f82b-21e4-4335-a4f5-f3f8cb1858a9" />
+
+---
+
+# 8.4. Khởi Động Hệ Thống
+
+Build và chạy toàn bộ container:
+
+```bash
+docker compose up -d --build
+```
+
+---
+
+# 8.5. Tạo Public Hostname
+
+Vào:
+
+```text
+Cloudflare Zero Trust
+→ Networks
+→ Tunnels
+→ Chọn Tunnel
+→ Public Hostname
+```
+
+Chọn:
+
+```text
+Add a public hostname
+```
+
+Điền:
+
+| Field     | Value             |
+| --------- | ----------------- |
+| Subdomain | camdo             |
+| Domain    | nhukhiem.id.vn    |
+| Type      | HTTP              |
+| URL       | http://django:8000    |
+
+
+<img width="792" height="887" alt="image" src="https://github.com/user-attachments/assets/4650481b-2f87-42b5-a627-44f4515974a5" />
 
 ---
 
@@ -676,28 +839,12 @@ Truy cập URL đó từ bất kỳ thiết bị nào để xem kết quả.
 
 ### 9.1 Trang Admin Django
 
-> *(Chèn ảnh chụp màn hình trang admin vào đây)*
+<img width="1878" height="1036" alt="image" src="https://github.com/user-attachments/assets/fe25191a-4e48-4369-b5e1-81b88e235ec0" />
 
-<!-- ![Trang Admin](docs/screenshot_admin.png) -->
 
 ### 9.2 Trang Con Nợ Đến Hạn
 
-> *(Chèn ảnh chụp màn hình trang home.html vào đây)*
-
-<!-- ![Trang Home](docs/screenshot_home.png) -->
-
-### 9.3 PhpMyAdmin — Kiểm Chứng Khóa Ngoại
-
-> *(Chèn ảnh PhpMyAdmin hiển thị ID khóa ngoại vào đây)*
-
-<!-- ![PhpMyAdmin](docs/screenshot_phpmyadmin.png) -->
-
-### 9.4 Cloudflare Tunnel Public URL
-
-> *(Chèn ảnh URL public từ Cloudflare vào đây)*
-
-<!-- ![Cloudflare](docs/screenshot_cloudflare.png) -->
-
+<img width="1876" height="985" alt="image" src="https://github.com/user-attachments/assets/edc2fc3f-9186-4609-9941-d5105f1fa414" />
 
 ---
 
