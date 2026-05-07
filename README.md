@@ -46,7 +46,7 @@ Hệ thống quản lý tiệm cầm đồ được xây dựng bằng **Django*
 
 
 
-# 2.2 Các bảng và quan hệ
+### 2.2 Các bảng và quan hệ
 
 ```text
 KhachHang ──────(1:N)──────► HopDong
@@ -55,7 +55,7 @@ TaiSan    ──────(1:N)──────► HopDong
 HopDong   ──────(1:N)──────► ThanhToan
 ```
 
-## Giải thích
+#### Giải thích
 
 * Một khách hàng có thể có nhiều hợp đồng cầm đồ
 * Một nhân viên có thể xử lý nhiều hợp đồng
@@ -64,9 +64,9 @@ HopDong   ──────(1:N)──────► ThanhToan
 
 ---
 
-# 2.3 Mô tả chi tiết từng bảng
+### 2.3 Mô tả chi tiết từng bảng
 
-## 📌 Bảng `core_khachhang`
+#### 📌 Bảng `core_khachhang`
 
 Lưu thông tin khách hàng đến cầm đồ.
 
@@ -81,7 +81,7 @@ Lưu thông tin khách hàng đến cầm đồ.
 
 ---
 
-## 📌 Bảng `core_nhanvien`
+#### 📌 Bảng `core_nhanvien`
 
 Lưu thông tin nhân viên trong tiệm cầm đồ.
 
@@ -95,7 +95,7 @@ Lưu thông tin nhân viên trong tiệm cầm đồ.
 
 ---
 
-## 📌 Bảng `core_taisan`
+#### 📌 Bảng `core_taisan`
 
 Lưu thông tin tài sản cầm cố.
 
@@ -106,7 +106,7 @@ Lưu thông tin tài sản cầm cố.
 | `mo_ta`       | LONGTEXT                    | Mô tả chi tiết     |
 | `tinh_trang`  | VARCHAR(50)                 | Tình trạng tài sản |
 
-### Ví dụ tài sản
+##### Ví dụ tài sản
 
 * Điện thoại
 * Laptop
@@ -116,7 +116,7 @@ Lưu thông tin tài sản cầm cố.
 
 ---
 
-## 📌 Bảng `core_hopdong`
+#### 📌 Bảng `core_hopdong`
 
 Đây là bảng nghiệp vụ chính của hệ thống.
 
@@ -134,7 +134,7 @@ Lưu thông tin tài sản cầm cố.
 | `nhan_vien_id`  | BIGINT (FK)                 | Liên kết nhân viên  |
 | `tai_san_id`    | BIGINT (FK)                 | Liên kết tài sản    |
 
-### Các trạng thái hợp đồng
+##### Các trạng thái hợp đồng
 
 ```text
 dang_cam  → Đang cầm
@@ -144,7 +144,7 @@ qua_han   → Quá hạn
 
 ---
 
-## 📌 Bảng `core_thanhtoan`
+#### 📌 Bảng `core_thanhtoan`
 
 Lưu lịch sử thanh toán của hợp đồng.
 
@@ -158,7 +158,7 @@ Lưu lịch sử thanh toán của hợp đồng.
 
 ---
 
-# 2.4 Quan hệ khóa ngoại (Foreign Key)
+### 2.4 Quan hệ khóa ngoại (Foreign Key)
 
 | Bảng             | Khóa ngoại      | Tham chiếu           |
 | ---------------- | --------------- | -------------------- |
