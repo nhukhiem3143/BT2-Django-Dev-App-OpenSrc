@@ -46,76 +46,126 @@ Hệ thống quản lý tiệm cầm đồ được xây dựng bằng **Django*
 
 
 
-### 2.2 Các bảng và quan hệ
+# 2.2 Các bảng và quan hệ
 
+```text
+KhachHang ──────(1:N)──────► HopDong
+NhanVien  ──────(1:N)──────► HopDong
+TaiSan    ──────(1:N)──────► HopDong
+HopDong   ──────(1:N)──────► ThanhToan
 ```
-KhachHang ──────(1:N)──────► HopDongCamDo
-NhanVien  ──────(1:N)──────► HopDongCamDo
-HopDongCamDo ──(1:N)──────► TaiSan
-HopDongCamDo ──(1:N)──────► LichSuThanhToan
-DanhMucTaiSan ─(1:N)──────► TaiSan
+
+## Giải thích
+
+* Một khách hàng có thể có nhiều hợp đồng cầm đồ
+* Một nhân viên có thể xử lý nhiều hợp đồng
+* Một tài sản thuộc một hợp đồng
+* Một hợp đồng có thể có nhiều lần thanh toán
+
+---
+
+# 2.3 Mô tả chi tiết từng bảng
+
+## 📌 Bảng `core_khachhang`
+
+Lưu thông tin khách hàng đến cầm đồ.
+
+| Trường       | Kiểu dữ liệu                | Mô tả             |
+| ------------ | --------------------------- | ----------------- |
+| `id`         | BIGINT (PK, Auto Increment) | Khóa chính        |
+| `ho_ten`     | VARCHAR(100)                | Họ tên khách hàng |
+| `cmnd`       | VARCHAR(20) UNIQUE          | Số CMND/CCCD      |
+| `sdt`        | VARCHAR(15)                 | Số điện thoại     |
+| `dia_chi`    | LONGTEXT                    | Địa chỉ           |
+| `created_at` | DATETIME                    | Ngày tạo dữ liệu  |
+
+---
+
+## 📌 Bảng `core_nhanvien`
+
+Lưu thông tin nhân viên trong tiệm cầm đồ.
+
+| Trường       | Kiểu dữ liệu                | Mô tả            |
+| ------------ | --------------------------- | ---------------- |
+| `id`         | BIGINT (PK, Auto Increment) | Khóa chính       |
+| `ho_ten`     | VARCHAR(100)                | Họ tên nhân viên |
+| `sdt`        | VARCHAR(15)                 | Số điện thoại    |
+| `chuc_vu`    | VARCHAR(50)                 | Chức vụ          |
+| `created_at` | DATETIME                    | Ngày tạo dữ liệu |
+
+---
+
+## 📌 Bảng `core_taisan`
+
+Lưu thông tin tài sản cầm cố.
+
+| Trường        | Kiểu dữ liệu                | Mô tả              |
+| ------------- | --------------------------- | ------------------ |
+| `id`          | BIGINT (PK, Auto Increment) | Khóa chính         |
+| `ten_tai_san` | VARCHAR(200)                | Tên tài sản        |
+| `mo_ta`       | LONGTEXT                    | Mô tả chi tiết     |
+| `tinh_trang`  | VARCHAR(50)                 | Tình trạng tài sản |
+
+### Ví dụ tài sản
+
+* Điện thoại
+* Laptop
+* Xe máy
+* Vàng
+* Máy ảnh
+
+---
+
+## 📌 Bảng `core_hopdong`
+
+Đây là bảng nghiệp vụ chính của hệ thống.
+
+| Trường          | Kiểu dữ liệu                | Mô tả               |
+| --------------- | --------------------------- | ------------------- |
+| `id`            | BIGINT (PK, Auto Increment) | Khóa chính          |
+| `ngay_cam`      | DATE                        | Ngày cầm đồ         |
+| `ngay_dao_han`  | DATE                        | Ngày đáo hạn        |
+| `so_tien_vay`   | DECIMAL(15,0)               | Số tiền cho vay     |
+| `lai_suat`      | DECIMAL(5,2)                | Lãi suất (%)        |
+| `trang_thai`    | VARCHAR(20)                 | Trạng thái hợp đồng |
+| `ghi_chu`       | LONGTEXT                    | Ghi chú             |
+| `created_at`    | DATETIME                    | Ngày tạo hợp đồng   |
+| `khach_hang_id` | BIGINT (FK)                 | Liên kết khách hàng |
+| `nhan_vien_id`  | BIGINT (FK)                 | Liên kết nhân viên  |
+| `tai_san_id`    | BIGINT (FK)                 | Liên kết tài sản    |
+
+### Các trạng thái hợp đồng
+
+```text
+dang_cam  → Đang cầm
+da_chuoc  → Đã chuộc
+qua_han   → Quá hạn
 ```
 
-### 2.3 Mô tả chi tiết từng bảng
+---
 
-#### 📌 Bảng `KhachHang`
-| Trường | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| `id` | INT (PK, Auto) | Khóa chính |
-| `ho_ten` | VARCHAR(100) | Họ và tên khách hàng |
-| `so_dien_thoai` | VARCHAR(15) | Số điện thoại liên hệ |
-| `so_cmnd` | VARCHAR(20) UNIQUE | Số CMND / CCCD |
-| `dia_chi` | TEXT | Địa chỉ thường trú |
-| `ngay_tao` | DATE | Ngày tạo hồ sơ |
+## 📌 Bảng `core_thanhtoan`
 
-#### 📌 Bảng `NhanVien`
-| Trường | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| `id` | INT (PK, Auto) | Khóa chính |
-| `ho_ten` | VARCHAR(100) | Họ và tên nhân viên |
-| `so_dien_thoai` | VARCHAR(15) | Số điện thoại |
-| `chuc_vu` | VARCHAR(50) | Chức vụ trong tiệm |
+Lưu lịch sử thanh toán của hợp đồng.
 
-#### 📌 Bảng `DanhMucTaiSan`
-| Trường | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| `id` | INT (PK, Auto) | Khóa chính |
-| `ten_danh_muc` | VARCHAR(100) | Tên loại (điện thoại, vàng, xe...) |
-| `mo_ta` | TEXT | Mô tả thêm |
+| Trường            | Kiểu dữ liệu                | Mô tả              |
+| ----------------- | --------------------------- | ------------------ |
+| `id`              | BIGINT (PK, Auto Increment) | Khóa chính         |
+| `ngay_thanh_toan` | DATE                        | Ngày thanh toán    |
+| `so_tien`         | DECIMAL(15,0)               | Số tiền thanh toán |
+| `ghi_chu`         | LONGTEXT                    | Ghi chú            |
+| `hop_dong_id`     | BIGINT (FK)                 | Liên kết hợp đồng  |
 
-#### 📌 Bảng `HopDongCamDo` *(nghiệp vụ chính)*
-| Trường | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| `id` | INT (PK, Auto) | Khóa chính |
-| `khach_hang_id` | INT (FK → KhachHang) | Khóa ngoại khách hàng |
-| `nhan_vien_id` | INT (FK → NhanVien) | Khóa ngoại nhân viên |
-| `so_hop_dong` | VARCHAR(20) UNIQUE | Mã số hợp đồng |
-| `ngay_cam` | DATE | Ngày cầm đồ |
-| `ngay_dao_han` | DATE | Ngày đến hạn chuộc |
-| `so_tien_cho_vay` | DECIMAL(15,0) | Số tiền cho vay (VNĐ) |
-| `lai_suat_thang` | DECIMAL(5,2) | Lãi suất mỗi tháng (%) |
-| `trang_thai` | VARCHAR(20) | đang_cam / da_chuoc / qua_han |
-| `ghi_chu` | TEXT | Ghi chú thêm |
+---
 
-#### 📌 Bảng `TaiSan`
-| Trường | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| `id` | INT (PK, Auto) | Khóa chính |
-| `hop_dong_id` | INT (FK → HopDongCamDo) | Khóa ngoại hợp đồng |
-| `danh_muc_id` | INT (FK → DanhMucTaiSan) | Khóa ngoại danh mục |
-| `ten_tai_san` | VARCHAR(200) | Tên tài sản cụ thể |
-| `mo_ta_tai_san` | TEXT | Mô tả chi tiết |
-| `gia_tri_dinh_gia` | DECIMAL(15,0) | Giá trị định giá (VNĐ) |
+# 2.4 Quan hệ khóa ngoại (Foreign Key)
 
-#### 📌 Bảng `LichSuThanhToan`
-| Trường | Kiểu dữ liệu | Mô tả |
-|---|---|---|
-| `id` | INT (PK, Auto) | Khóa chính |
-| `hop_dong_id` | INT (FK → HopDongCamDo) | Khóa ngoại hợp đồng |
-| `ngay_thanh_toan` | DATE | Ngày thực hiện thanh toán |
-| `so_tien` | DECIMAL(15,0) | Số tiền thanh toán |
-| `loai_thanh_toan` | VARCHAR(20) | tra_lai / gia_han / chuoc_hang |
-| `ghi_chu` | TEXT | Ghi chú |
+| Bảng             | Khóa ngoại      | Tham chiếu           |
+| ---------------- | --------------- | -------------------- |
+| `core_hopdong`   | `khach_hang_id` | `core_khachhang(id)` |
+| `core_hopdong`   | `nhan_vien_id`  | `core_nhanvien(id)`  |
+| `core_hopdong`   | `tai_san_id`    | `core_taisan(id)`    |
+| `core_thanhtoan` | `hop_dong_id`   | `core_hopdong(id)`   |
 
 ---
 
