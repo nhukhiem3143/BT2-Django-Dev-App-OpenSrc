@@ -36,24 +36,13 @@ Hệ thống quản lý tiệm cầm đồ được xây dựng bằng **Django*
 - Trang **Admin** tự động: thêm / sửa / xóa dữ liệu mọi bảng
 - Khóa ngoại hiển thị dạng **dropdown chọn text** (Django tự xử lý)
 - Trang chủ liệt kê **con nợ đến hạn chưa trả** (dùng template Jinja2)
-- Public ra Internet qua **Cloudflare Tunnel** (không cần mua domain)
+- Public ra Internet qua **Cloudflare Tunnel**
 
 ---
 
 ## 2. Thiết Kế CSDL
 
-### 2.1 Sơ đồ quan hệ
-
-
-
-### 2.2 Các bảng và quan hệ
-
-```text
-KhachHang ──────(1:N)──────► HopDong
-NhanVien  ──────(1:N)──────► HopDong
-TaiSan    ──────(1:N)──────► HopDong
-HopDong   ──────(1:N)──────► ThanhToan
-```
+<img width="1777" height="2220" alt="z7803866189139_ba411f5ea9b7c6cb7a8c14cd743a096b" src="https://github.com/user-attachments/assets/b352d59f-b6aa-40df-8fa3-271d9096219c" />
 
 #### Giải thích
 
@@ -609,34 +598,11 @@ docker compose logs db
 # Rebuild image Django sau khi sửa Dockerfile / requirements.txt
 docker compose up -d --build
 
-# Vào trong container Django để chạy lệnh
-docker compose exec web bash
 ```
 
 ---
 
-### 7.2 Các lệnh Django thường dùng
-
-```bash
-# Đọc models.py và tạo file migration
-docker compose exec web python manage.py makemigrations camdo
-
-# Apply migration → Django tự tạo/sửa bảng trong MariaDB
-docker compose exec web python manage.py migrate
-
-# Tạo tài khoản superuser (đăng nhập trang admin)
-docker compose exec web python manage.py createsuperuser
-
-# Thu thập static files (nếu cần)
-docker compose exec web python manage.py collectstatic
-
-# Mở Django shell (kiểm tra query)
-docker compose exec web python manage.py shell
-```
-
----
-
-### 7.3 Quy trình khi sửa code
+### 7.2 Quy trình khi sửa code
 
 ```
 Sửa file bằng nano
@@ -652,7 +618,7 @@ docker compose restart web
 
 ---
 
-### 7.4 Kiểm tra Kiểm tra tính toàn vẹn dữ liệu và Khóa ngoại (Foreign Key)
+### 7.3 Kiểm tra Kiểm tra tính toàn vẹn dữ liệu và Khóa ngoại (Foreign Key)
 
 Để đảm bảo hệ thống quản lý tiệm cầm đồ hoạt động chính xác, chúng ta thực hiện quy trình nhập liệu trên trang quản trị (Admin) và kiểm chứng sự lưu trữ thực tế trong cơ sở dữ liệu thông qua phpMyAdmin.
 
@@ -726,7 +692,7 @@ Tài sản cũng được lưu trữ tương tự với ID riêng biệt.
 
 ---
 
-### 7.5. Trang home_page liệt kê các người dùng đang nợ
+### 7.4. Trang home_page liệt kê các người dùng đang nợ
 
 <img width="1873" height="981" alt="image" src="https://github.com/user-attachments/assets/e2710ab6-e2e9-4c2e-a6e0-5f0ef38270f6" />  
 <img width="1850" height="1020" alt="image" src="https://github.com/user-attachments/assets/ee9e40f6-17cf-459a-9c48-773ce0320099" />
